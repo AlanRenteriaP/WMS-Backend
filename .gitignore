@@ -22,3 +22,8 @@
 npm-debug.log*
 yarn-debug.log*
 /.idea/shelf/Changes.xml
+
+
+.idea
+
+/.idea
