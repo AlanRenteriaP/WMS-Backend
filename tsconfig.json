@@ -5,7 +5,8 @@
     "rootDir": "src",
     "outDir": "dist",
     "strict": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "skipLibCheck": true  // Add this line to skip type checking of all declaration files
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]
