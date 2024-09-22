@@ -5,6 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a389af7f-3e0f-48a7-af3b-4660a1266bb9" name="Changes" comment="">
+<<<<<<< HEAD
       <change afterPath="$PROJECT_DIR$/src/database/index.ts" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/src/routes/auth.ts" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/src/routes/index.ts" afterDir="false" />
@@ -22,6 +23,10 @@
       <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/app.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/tsconfig.json" afterDir="false" />
+=======
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+>>>>>>> main
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,6 +63,7 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
+<<<<<<< HEAD
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
@@ -73,6 +79,23 @@
     &quot;settings.editor.selected.configurable&quot;: &quot;preferences.general&quot;,
     &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\alanr\\WebstormProjects\\WarehouseManagementSystem-WMS\\WMS-Backend\\node_modules\\typescript\\lib&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+=======
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "C:/Users/alanr/WebstormProjects/WarehouseManagementSystem-WMS/WMS-Backend",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.general",
+    "ts.external.directory.path": "C:\\Users\\alanr\\WebstormProjects\\WarehouseManagementSystem-WMS\\WMS-Backend\\node_modules\\typescript\\lib",
+    "vue.rearranger.settings.migration": "true"
+>>>>>>> main
   }
 }</component>
   <component name="RecentsManager">
@@ -108,6 +131,7 @@
       <workItem from="1724790450938" duration="11000" />
       <workItem from="1724790469587" duration="10000" />
       <workItem from="1724790497329" duration="66000" />
+<<<<<<< HEAD
       <workItem from="1724791326453" duration="7819000" />
       <workItem from="1724880013297" duration="1770000" />
       <workItem from="1724881799435" duration="11147000" />
@@ -121,6 +145,9 @@
       <workItem from="1726211484559" duration="2593000" />
       <workItem from="1726250567938" duration="17022000" />
       <workItem from="1726681805255" duration="16908000" />
+=======
+      <workItem from="1724791326453" duration="2887000" />
+>>>>>>> main
     </task>
     <servers />
   </component>
