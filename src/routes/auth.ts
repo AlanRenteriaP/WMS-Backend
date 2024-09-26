@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+    import express, { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt, {JwtPayload} from 'jsonwebtoken';
 import pool from '../database';

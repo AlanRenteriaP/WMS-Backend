@@ -1,144 +1,135 @@
 import express, { Request, Response } from 'express';
-import pool from '../../database'; // Assuming you have a pool connection set up
-import { QueryResult } from 'pg';
+import pool from '../../database';
+import {validateRequest} from '../../middleware/validate';
+import {
+    productSchema,
+    productIdSchema,
+    productUpdateSchema,
+    ProductIdInput,
+    ProductInput,
+    ProductUpdateInput,
+    unitUpdateInput
+} from "../../schemas";
 
 const router = express.Router();
 
 router.get('/', async (req: Request, res: Response) => {
     try {
-        // Query to get all products from the database
-        const products: QueryResult = await pool.query('SELECT * FROM products');
+
 
         // Send the result back as JSON
-        res.status(200).json(products.rows);
+        res.status(200).json("Inside Product API CAll");
     } catch (error: any) {
         console.error('Error fetching products:', error.message);
         res.status(500).json({ error: 'Server error. Failed to fetch products.' });
     }
 });
 
-router.get('/products_variants', async (req: Request, res: Response) => {
+router.get('/getproducts', async (req: Request, res: Response) => {
     try {
-        // Query to get all products from the database
-        const products: QueryResult = await pool.query('SELECT * FROM products_variants');
-
-        // Send the result back as JSON
-        res.status(200).json(products.rows);
+        const productsQuery = `SELECT * FROM products;`;
+        const result = await pool.query(productsQuery);
+        res.status(200).json(result.rows);
     } catch (error: any) {
         console.error('Error fetching products:', error.message);
         res.status(500).json({ error: 'Server error. Failed to fetch products.' });
     }
 });
 
-router.get('/products_with_variants', async (req: Request, res: Response) => {
-    try {
-        const productsWithVariants: QueryResult = await pool.query(`
-            SELECT
-                p.*,
-                pm.name AS measurement_name,
-                pm.abbreviation AS measurement_abbreviation,
-                MAX(pv.updated_at) AS last_updated,
-                COALESCE(
-                    json_agg(
-                        json_build_object(
-                            'id', pv.id,
-                            'product_id', pv.product_id,
-                            'sku', pv.sku,
-                            'presentation', pv.presentation,
-                            'quantity', pv.quantity,
-                            'unit', pv.unit,
-                            'price', pv.price,
-                            'is_active', pv.is_active,
-                            'created_at', pv.created_at,
-                            'updated_at', pv.updated_at,
-                            'sources', pv_sources.sources
-                        ) ORDER BY pv.id
-                    ) FILTER (WHERE pv.id IS NOT NULL),
-                    '[]'
-                ) AS variants
-            FROM products p
-            LEFT JOIN products_measurement pm ON p.measurement_id = pm.id
-            LEFT JOIN products_variants pv ON p.id = pv.product_id
-            LEFT JOIN (
-                SELECT
-                    ps.product_variant_id,
-                    json_agg(ss.name) AS sources
-                FROM products_sourcing ps
-                JOIN source_stores ss ON ps.source_store_id = ss.id
-                GROUP BY ps.product_variant_id
-            ) pv_sources ON pv.id = pv_sources.product_variant_id
-            GROUP BY p.id, pm.name, pm.abbreviation
-        `);
+router.post('/addproducts', validateRequest({ body: productSchema }), async (req: Request, res: Response) => {
+    const { product_name, default_unit_id, category, default_variant_id } = req.body;
 
-        res.status(200).json(productsWithVariants.rows);
+    try {
+        const insertProductQuery = `
+            INSERT INTO products (product_name, default_unit_id, category, default_variant_id)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *;
+        `;
+        const result = await pool.query(insertProductQuery, [product_name, default_unit_id, category, default_variant_id]);
+        res.status(201).json({
+            message: 'Product added successfully.',
+            product: result.rows[0]
+        });
     } catch (error: any) {
-        console.error('Error fetching products with variants:', error.message);
-        res.status(500).json({ error: 'Server error. Failed to fetch products with variants.' });
+        console.error('Error adding product:', error.message);
+        res.status(500).json({ error: 'Server error. Failed to add product.' });
+    }
+});
+
+router.get('/getproduct/:id', validateRequest({ params: productIdSchema }), async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    try {
+        const getProductQuery = `
+            SELECT * FROM products WHERE product_id = $1;
+        `;
+        const result = await pool.query(getProductQuery, [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Product not found.' });
+        }
+        res.status(200).json(result.rows[0]);
+    } catch (error: any) {
+        console.error('Error fetching product:', error.message);
+        res.status(500).json({ error: 'Server error. Failed to fetch product.' });
     }
 });
 
 
-// Route to add a new product variant
-router.post('/:productId/variants', async (req: Request, res: Response) => {
-    const { productId } = req.params;
-    const {
-        presentation,
-        quantity,
-        unit,
-        price,
-        source,
-    } = req.body;
-
+router.put('/updateproduct/:id', validateRequest({ params: productIdSchema, body: productUpdateSchema }), async (req: Request, res: Response) => {
     try {
-        // Validate input data
-        if (!presentation || !unit || price === undefined || quantity === undefined) {
-            return res.status(400).json({ error: 'Missing required fields' });
+        const { id } = req.params as unknown as ProductIdInput;
+        type ExtendedUnitUpdateInput = ProductUpdateInput & { [key: string]: any };
+        const updateData = req.body as ExtendedUnitUpdateInput;
+        // Construct the SQL update query dynamically based on provided fields
+        const keys = Object.keys(updateData).filter(key => updateData[key] !== undefined);
+        const setClause = keys.map((key, index) => `${key} = $${index + 1}`).join(', ');
+        const values = keys.map(key => updateData[key]);
+
+        if (keys.length === 0) {
+            return res.status(400).json({ error: 'No valid fields provided for update' });
         }
 
-        // Insert the new variant into the database
-        const result = await pool.query(
-            `
-      INSERT INTO products_variants 
-        (product_id, sku, presentation, quantity, unit, price, source, created_at, updated_at, is_active)
-      VALUES
-        ($1, (SELECT CONCAT($1, LPAD(COALESCE(MAX(id), 0) + 1::text, 4, '0')) FROM products_variants WHERE product_id = $1), $2, $3, $4, $5, $6, NOW(), NOW(), true)
-      RETURNING *
-      `,
-            [productId, presentation, quantity, unit, price, source]
-        );
+        const sqlQuery = `
+            UPDATE products
+            SET ${setClause}
+            WHERE product_id = $${keys.length + 1}
+            RETURNING *;
+        `;
 
-        res.status(201).json(result.rows[0]);
-    } catch (error: any) {
-        console.error('Error adding product variant:', error.message);
-        res.status(500).json({ error: 'Server error. Failed to add product variant.' });
+        const result = await pool.query(sqlQuery, [...values, id]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Product not found.' });
+        }
+        res.status(200).json(result.rows[0]);
+    } catch (error:any) {
+        console.error('Error updating product:', error.message);
+        res.status(500).json({ error: 'Server error. Failed to update product.' });
     }
 });
 
-router.get('/sourcestores', async (req: Request, res: Response) => {
+router.delete('/deleteproduct/:id', validateRequest({ params: productIdSchema }), async (req: Request, res: Response) => {
+    const { id } = req.params;
+
     try {
-        // Query to get all products from the database
-        const products: QueryResult = await pool.query('SELECT * FROM products_variants');
-
-        // Send the result back as JSON
-        res.status(200).json(products.rows);
+        const deleteProductQuery = `
+            DELETE FROM products
+            WHERE product_id = $1
+            RETURNING *;
+        `;
+        const result = await pool.query(deleteProductQuery, [id]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Product not found.' });
+        }
+        res.status(200).json({
+            message: 'Product deleted successfully.',
+            deletedProduct: result.rows[0]
+        });
     } catch (error: any) {
-        console.error('Error fetching products:', error.message);
-        res.status(500).json({ error: 'Server error. Failed to fetch products.' });
+        console.error('Error deleting product:', error.message);
+        res.status(500).json({ error: 'Server error. Failed to delete product.' });
     }
 });
 
-router.get('/brands', async (req: Request, res: Response) => {
-    try {
-        // Query to get all products from the database
-        const products: QueryResult = await pool.query('SELECT * FROM products_variants');
-
-        // Send the result back as JSON
-        res.status(200).json(products.rows);
-    } catch (error: any) {
-        console.error('Error fetching products:', error.message);
-        res.status(500).json({ error: 'Server error. Failed to fetch products.' });
-    }
-});
 
 
 export default router;
