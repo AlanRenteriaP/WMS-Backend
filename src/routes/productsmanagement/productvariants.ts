@@ -35,30 +35,88 @@ router.get('/getall', async (req: Request, res: Response) => {
 
 });
 
-
-
 // Route to add or update a product variant
 router.post('/addvariant', validateRequest({ body: productVariantSchema }), async (req: Request, res: Response) => {
     const variantData = req.body as ProductVariantInput;
     console.log(variantData);
-    const { store_product_id, brand_id, package_size, unit_id, upc, attributes } = req.body as ProductVariantInput;
+    console.log('Adding the Variant');
+
+    const {
+        product_id,
+        supplier_id,
+        brand_id,
+        package_size,
+        unit_id,
+        price // Including price from the request payload
+    } = variantData;
 
     try {
+        // Validate that product exists
+        const productResult = await pool.query('SELECT * FROM products WHERE product_id = $1', [product_id]);
+        if (productResult.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid product_id. Product does not exist.' });
+        }
+
+        // Validate that supplier exists
+        const supplierResult = await pool.query('SELECT * FROM suppliers WHERE supplier_id = $1', [supplier_id]);
+        if (supplierResult.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid supplier_id. Supplier does not exist.' });
+        }
+
+        // Validate that brand exists
+        const brandResult = await pool.query('SELECT * FROM brands WHERE brand_id = $1', [brand_id]);
+        if (brandResult.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid brand_id. Brand does not exist.' });
+        }
+
+        // Insert the new product variant
         const insertVariantQuery = `
-            INSERT INTO product_variants (store_product_id, brand_id, package_size, unit_id, upc, attributes)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO product_variants (product_id, brand_id, package_size, unit_id)
+            VALUES ($1, $2, $3, $4)
+            RETURNING variant_id;
+        `;
+        const variantResult = await pool.query(insertVariantQuery, [
+            product_id,
+            brand_id,
+            package_size,
+            unit_id
+        ]);
+
+        const variant_id = variantResult.rows[0].variant_id;
+
+        // Insert the association between supplier and product variant into the suppliers_products table
+        const insertSupplierProductQuery = `
+            INSERT INTO suppliers_products (supplier_id, variant_id)
+            VALUES ($1, $2)
             RETURNING *;
         `;
-        const result = await pool.query(insertVariantQuery, [store_product_id, brand_id, package_size, unit_id, upc, attributes]);
+        await pool.query(insertSupplierProductQuery, [
+            supplier_id,
+            variant_id
+        ]);
+
+        // Insert the price for the new product variant into the product_prices table
+        const insertPriceQuery = `
+            INSERT INTO product_prices (variant_id, price, price_date, currency)
+            VALUES ($1, $2, NOW(), 'MXN')
+            RETURNING *;
+        `;
+        const priceResult = await pool.query(insertPriceQuery, [
+            variant_id,
+            price
+        ]);
+
         res.status(201).json({
-            message: 'Variant added successfully.',
-            variant: result.rows[0]
+            message: 'Variant, supplier association, and price added successfully.',
+            variant: variantResult.rows[0],
+            price: priceResult.rows[0]
         });
     } catch (error: any) {
         console.error('Error adding variant:', error.message);
         res.status(500).json({ error: 'Server error. Failed to add variant.' });
     }
 });
+
 
 // Route to get a product variant by ID
 router.get('/getvariant/:id', validateRequest({ params: productVariantIdSchema }), async (req: Request, res: Response) => {

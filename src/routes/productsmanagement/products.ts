@@ -130,6 +130,81 @@ router.delete('/deleteproduct/:id', validateRequest({ params: productIdSchema })
     }
 });
 
+router.get('/overview', async (req: Request, res: Response) => {
+    try {
+        // Extract optional category filter from query parameters
+        const categoryFilter = req.query.category as string | undefined;
+
+        // Base SQL query to fetch products and their variants
+        const productsQuery = `
+SELECT
+    p.product_id,
+    p.product_name,
+    p.default_variant_id,
+    u.unit_name AS measurement,
+    COUNT(DISTINCT v.variant_id) AS number_of_variants,
+    CONCAT('$', MIN(pp_all.price), ' - $', MAX(pp_all.price)) AS price_range,
+    MAX(pp_all.price_date) AS last_updated,
+    COALESCE(
+        json_agg(
+            DISTINCT jsonb_build_object(
+                'variant_id', v.variant_id,
+                'upc', v.upc,
+                'presentation', CONCAT(v.package_size, ' ', vu.unit_name),
+                'price', pp.price,
+                'brand', b.brand_name,
+                'supplier', s.supplier_name,  -- Adding supplier name
+                'last_updated', pp.price_date,
+                'is_default', (v.variant_id = p.default_variant_id)
+            )
+        ) FILTER (WHERE v.variant_id IS NOT NULL),
+        '[]'
+    ) AS variants
+FROM
+    public.products p
+LEFT JOIN
+    public.units u ON p.default_unit_id = u.unit_id
+LEFT JOIN
+    public.product_variants v ON p.product_id = v.product_id
+LEFT JOIN
+    public.units vu ON v.unit_id = vu.unit_id
+LEFT JOIN
+    public.brands b ON v.brand_id = b.brand_id
+LEFT JOIN
+    public.suppliers_products sp ON v.variant_id = sp.variant_id  -- Join with suppliers_products table
+LEFT JOIN
+    public.suppliers s ON sp.supplier_id = s.supplier_id  -- Join with suppliers table
+LEFT JOIN
+    public.product_prices pp_all ON v.variant_id = pp_all.variant_id
+LEFT JOIN LATERAL (
+    SELECT pp.variant_id, pp.price, pp.price_date
+    FROM public.product_prices pp
+    WHERE pp.variant_id = v.variant_id
+    ORDER BY pp.price_date DESC
+    LIMIT 1
+) pp ON true
+GROUP BY
+    p.product_id, p.product_name, p.default_variant_id, u.unit_name
+ORDER BY
+    p.product_name;
+        `;
+
+        // Parameters for the parameterized query
+        const queryParams = categoryFilter ? [categoryFilter] : [];
+
+        // Execute the query using parameterized inputs to prevent SQL injection
+        const { rows } = await pool.query(productsQuery, queryParams);
+
+        // Respond with the retrieved products and variants
+        res.status(200).json({
+            message: 'Products fetched successfully.',
+            products: rows,
+        });
+    } catch (error: any) {
+        console.error('Error fetching products:', error.message);
+        res.status(500).json({ error: 'Server error. Failed to fetch products.' });
+    }
+});
 
 
 export default router;

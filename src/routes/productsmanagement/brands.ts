@@ -11,10 +11,10 @@ router.get('/', async (req: Request, res: Response) => {
     try {
         const suppliersQuery = `SELECT * FROM brands`;
 
-        const stores = await pool.query(suppliersQuery);
+        const brands = await pool.query(suppliersQuery);
         res.status(200).json({
             message: 'Brands fetched successfully.',
-            stores: stores.rows,
+            brands: brands.rows,
         });
     } catch (error: any) {
         console.error('Error fetching stores:', error.message);
@@ -23,9 +23,48 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 
-router.get('/brands', async (req: Request, res: Response) => {
+router.get('/prudcts/overview', async (req: Request, res: Response) => {
     try {
-        const suppliersQuery = `SELECT * FROM brands`;
+        const suppliersQuery = `
+            SELECT 
+    b.brand_name,
+    json_agg(
+        json_build_object(
+            'product_name', p.product_name,
+            'variants', pv.variants
+        )
+    ) as products
+FROM 
+    public.brands b
+JOIN 
+    public.product_variants v ON b.brand_id = v.brand_id
+JOIN 
+    public.products p ON p.product_id = v.supplier_product_id
+LEFT JOIN 
+    (
+        SELECT 
+            p.product_id,
+            json_agg(
+                json_build_object(
+                    'variant_id', v.variant_id,
+                    'package_size', v.package_size,
+                    'unit_id', v.unit_id,
+                    'upc', v.upc,
+                    'attributes', v.attributes
+                )
+            ) as variants
+        FROM 
+            public.product_variants v
+        JOIN 
+            public.products p ON p.product_id = v.supplier_product_id
+        GROUP BY 
+            p.product_id
+    ) pv ON pv.product_id = p.product_id
+WHERE 
+    b.brand_id = v.brand_id
+GROUP BY 
+    b.brand_id;
+        `;
 
         const stores = await pool.query(suppliersQuery);
         res.status(200).json({

@@ -24,6 +24,53 @@ router.get('/getstores', async (req: Request, res: Response) => {
     try {
         const suppliersQuery = `SELECT * FROM suppliers`;
 
+        const suppliers = await pool.query(suppliersQuery);
+        res.status(200).json({
+            message: 'Stores fetched successfully.',
+            suppliers: suppliers.rows,
+        });
+    } catch (error: any) {
+        console.error('Error fetching stores:', error.message);
+        res.status(500).json({ error: 'Server error. Failed to fetch stores.' });
+    }
+});
+
+router.get('/prudcts/overview', async (req: Request, res: Response) => {
+    try {
+        const suppliersQuery = `
+            SELECT 
+    s.supplier_name,
+    json_agg(
+        json_build_object(
+            'product_name', p.product_name,
+            'variants', pv.variants
+        )
+    ) as products
+FROM 
+    public.suppliers s
+LEFT JOIN 
+    public.suppliers_products sp ON s.supplier_id = sp.supplier_id
+LEFT JOIN 
+    public.products p ON sp.product_id = p.product_id
+LEFT JOIN 
+    (
+        SELECT 
+            variant_id, 
+            supplier_product_id, 
+            json_build_object(
+                'variant_id', variant_id,
+                'package_size', package_size,
+                'unit_id', unit_id,
+                'upc', upc,
+                'attributes', attributes
+            ) as variants
+        FROM 
+            public.product_variants
+    ) pv ON pv.supplier_product_id = sp.supplier_product_id
+GROUP BY 
+    s.supplier_id;
+        `;
+
         const stores = await pool.query(suppliersQuery);
         res.status(200).json({
             message: 'Stores fetched successfully.',
@@ -35,16 +82,17 @@ router.get('/getstores', async (req: Request, res: Response) => {
     }
 });
 
+
 router.post('/addstore', validateRequest({ body: storeSchema }), async (req: Request, res: Response) => {
     try {
-        const { store_name, location } = req.body as StoreInput;
+        const { supplier_name, location } = req.body as StoreInput;
 
         const insertQuery = `
-      INSERT INTO suppliers (store_name, location)
+      INSERT INTO suppliers (supplier_name, location)
       VALUES ($1, $2)
-      RETURNING supplier_id, store_name, location;
+      RETURNING supplier_id, supplier_name, location;
     `;
-        const insertValues = [store_name.trim(), location ? location.trim() : null];
+        const insertValues = [supplier_name.trim(), location ? location.trim() : null];
 
         const result = await pool.query(insertQuery, insertValues);
 
@@ -86,18 +134,18 @@ router.get('/getstorebyid/:id', validateRequest({ params: storeIdSchema }), asyn
 
 router.put('/updatestore/:id', validateRequest({ params: storeIdSchema, body: storeSchema }), async (req: Request, res: Response) => {
     const { id } = req.params as unknown as StoreIdInput;
-    const { store_name, location} = req.body as StoreInput;
+    const { supplier_name, location} = req.body as StoreInput;
 
     try {
         // SQL query to update store details
         const updateQuery = `
                 UPDATE suppliers 
                 SET 
-                    store_name = $1, 
+                    supplier_name = $1, 
                     location = $2
                 WHERE supplier_id = $3
                 RETURNING *;`;
-        const values = [store_name, location, id];
+        const values = [supplier_name, location, id];
 
 
         const updateResult = await pool.query(updateQuery, values);
