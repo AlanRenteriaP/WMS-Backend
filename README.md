@@ -16,4 +16,4 @@ WMS: Backend is the core service layer of the Warehouse Management System (WMS),
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/beatrenger/WMS-Backend.git
+   git clone https://github.com/AlanRenteriaP/WMS-Backend.git
