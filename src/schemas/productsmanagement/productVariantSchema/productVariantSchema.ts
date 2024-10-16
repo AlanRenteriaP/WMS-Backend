@@ -39,14 +39,12 @@ export const productVariantSchema = z.object({
     }),
 });
 
-// Schema for validating product variant ID in routes
+
 export const productVariantIdSchema = z.object({
-    id: z.number({
-        required_error: 'Variant ID is required',
-        invalid_type_error: 'Variant ID must be a number'
-    }).int({
-        message: 'Variant ID must be an integer'
-    })
+    id: z
+        .string()
+        .regex(/^\d+$/, { message: 'ID must be a valid number.' })
+        .transform(Number),  // Ensures ID is transformed into a number
 });
 
 // Schema for partial updates (reuse the full schema with .partial())

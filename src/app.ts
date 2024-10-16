@@ -33,7 +33,15 @@ app.get('/', async (req: Request, res: Response) => {
     res.json({ message: 'It\'s working! Yes, it did work HAHAHA!' });
 });
 
-// Start the server
-app.listen(port, () => {
+// Start the server and store the server instance
+const server = app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
+});
+
+// Gracefully shut down the server when nodemon restarts
+process.once('SIGUSR2', () => {
+    server.close(() => {
+        console.log('Server closed. Restarting...');
+        process.kill(process.pid, 'SIGUSR2');
+    });
 });

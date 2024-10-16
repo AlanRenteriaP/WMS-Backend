@@ -35,55 +35,86 @@ router.get('/getstores', async (req: Request, res: Response) => {
     }
 });
 
-router.get('/prudcts/overview', async (req: Request, res: Response) => {
+router.get('/overview', async (req: Request, res: Response) => {
     try {
         const suppliersQuery = `
-            SELECT 
-    s.supplier_name,
-    json_agg(
-        json_build_object(
-            'product_name', p.product_name,
-            'variants', pv.variants
-        )
-    ) as products
+WITH supplier_ingredients AS (
+    SELECT 
+        s.supplier_id,
+        COALESCE(i.ingredient_id, 0) AS ingredient_id,
+        COALESCE(i.ingredient_name, 'Miscellaneous') AS ingredient_name,
+        COUNT(p.product_id) AS products_count,
+        COALESCE(
+            JSON_AGG(
+                JSON_BUILD_OBJECT(
+                    'product_id', p.product_id,
+                    'brand_id', p.brand_id,
+                    'brand_name', b.brand_name,
+                    'package_size', p.package_size,
+                    'unit_id', p.unit_id,
+                    'abbreviation', u.abbreviation,
+                    'default_supplier_product_id', p.default_supplier_product_id
+                ) ORDER BY p.product_id
+            ) FILTER (WHERE p.product_id IS NOT NULL),
+            '[]'
+        )::json AS products
+    FROM 
+        public.suppliers s
+    LEFT JOIN 
+        public.suppliers_products sp ON s.supplier_id = sp.supplier_id
+    LEFT JOIN 
+        public.products p ON sp.product_id = p.product_id
+    LEFT JOIN 
+        public.brands b ON p.brand_id = b.brand_id
+    LEFT JOIN
+        public.units u ON p.unit_id = u.unit_id
+    LEFT JOIN 
+        public.ingredients i ON p.ingredient_id = i.ingredient_id
+    GROUP BY 
+        s.supplier_id,
+        COALESCE(i.ingredient_id, 0),
+        COALESCE(i.ingredient_name, 'Miscellaneous')
+)
+
+SELECT 
+    s.*,
+    COUNT(DISTINCT si.ingredient_id) FILTER (WHERE si.products_count > 0) AS ingredient_count,
+    COALESCE(
+        JSON_AGG(
+            JSON_BUILD_OBJECT(
+                'ingredient_id', si.ingredient_id,
+                'ingredient_name', si.ingredient_name,
+                'products_count', si.products_count,
+                'products', si.products
+            ) ORDER BY si.ingredient_name
+        ) FILTER (
+            WHERE si.products_count > 0
+        ),
+        '[]'
+    ) AS ingredients
 FROM 
     public.suppliers s
 LEFT JOIN 
-    public.suppliers_products sp ON s.supplier_id = sp.supplier_id
-LEFT JOIN 
-    public.products p ON sp.product_id = p.product_id
-LEFT JOIN 
-    (
-        SELECT 
-            variant_id, 
-            supplier_product_id, 
-            json_build_object(
-                'variant_id', variant_id,
-                'package_size', package_size,
-                'unit_id', unit_id,
-                'upc', upc,
-                'attributes', attributes
-            ) as variants
-        FROM 
-            public.product_variants
-    ) pv ON pv.supplier_product_id = sp.supplier_product_id
+    supplier_ingredients si ON s.supplier_id = si.supplier_id
 GROUP BY 
-    s.supplier_id;
+    s.supplier_id,
+    s.supplier_name,
+    s.location;
         `;
 
-        const stores = await pool.query(suppliersQuery);
+        const suppliers = await pool.query(suppliersQuery);
         res.status(200).json({
             message: 'Stores fetched successfully.',
-            stores: stores.rows,
+            suppliers: suppliers.rows,
         });
     } catch (error: any) {
-        console.error('Error fetching stores:', error.message);
+        console.error('Error fetching suppliers:', error.message);
         res.status(500).json({ error: 'Server error. Failed to fetch stores.' });
     }
 });
 
 
-router.post('/addstore', validateRequest({ body: storeSchema }), async (req: Request, res: Response) => {
+router.post('/addsupplier', validateRequest({ body: storeSchema }), async (req: Request, res: Response) => {
     try {
         const { supplier_name, location } = req.body as StoreInput;
 
@@ -98,7 +129,7 @@ router.post('/addstore', validateRequest({ body: storeSchema }), async (req: Req
 
         res.status(201).json({
             message: 'Store added successfully.',
-            store: result.rows[0],
+            supplier: result.rows[0],
         });
     } catch (error: any) {
         console.error('Error adding store:', error.message);

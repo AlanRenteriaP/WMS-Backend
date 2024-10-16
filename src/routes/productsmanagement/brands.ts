@@ -22,58 +22,78 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
-
-router.get('/prudcts/overview', async (req: Request, res: Response) => {
+router.get('/overview', async (req: Request, res: Response) => {
     try {
-        const suppliersQuery = `
-            SELECT 
+        const brandsQuery = `
+          WITH brand_ingredients AS (
+    SELECT 
+        b.brand_id,
+        b.brand_name,
+        COALESCE(i.ingredient_id, 0) AS ingredient_id,
+        COALESCE(i.ingredient_name, 'Miscellaneous') AS ingredient_name,
+        COUNT(p.product_id) AS products_count,
+        COALESCE(
+            JSON_AGG(
+                JSON_BUILD_OBJECT(
+                    'product_id', p.product_id,
+                    'package_size', p.package_size,
+                    'unit_id', p.unit_id,
+                    'abbreviation', u.abbreviation,
+                    'default_supplier_product_id', p.default_supplier_product_id
+                ) ORDER BY p.product_id
+            ) FILTER (WHERE p.product_id IS NOT NULL),
+            '[]'
+        )::json AS products
+    FROM 
+        public.brands b
+    LEFT JOIN 
+        public.products p ON b.brand_id = p.brand_id
+    LEFT JOIN 
+        public.units u ON p.unit_id = u.unit_id
+    LEFT JOIN 
+        public.ingredients i ON p.ingredient_id = i.ingredient_id
+    GROUP BY 
+        b.brand_id,
+        b.brand_name,
+        COALESCE(i.ingredient_id, 0),
+        COALESCE(i.ingredient_name, 'Miscellaneous')
+)
+
+SELECT 
+    b.brand_id,
     b.brand_name,
-    json_agg(
-        json_build_object(
-            'product_name', p.product_name,
-            'variants', pv.variants
-        )
-    ) as products
+    COUNT(DISTINCT bi.ingredient_id) FILTER (WHERE bi.products_count > 0) AS number_of_ingredients,
+    SUM(bi.products_count) AS number_of_products,
+    COALESCE(
+        JSON_AGG(
+            JSON_BUILD_OBJECT(
+                'ingredient_id', bi.ingredient_id,
+                'ingredient_name', bi.ingredient_name,
+                'products_count', bi.products_count,
+                'products', bi.products
+            ) ORDER BY bi.ingredient_name
+        ) FILTER (
+            WHERE bi.products_count > 0
+        ),
+        '[]'
+    ) AS ingredients
 FROM 
     public.brands b
-JOIN 
-    public.product_variants v ON b.brand_id = v.brand_id
-JOIN 
-    public.products p ON p.product_id = v.supplier_product_id
 LEFT JOIN 
-    (
-        SELECT 
-            p.product_id,
-            json_agg(
-                json_build_object(
-                    'variant_id', v.variant_id,
-                    'package_size', v.package_size,
-                    'unit_id', v.unit_id,
-                    'upc', v.upc,
-                    'attributes', v.attributes
-                )
-            ) as variants
-        FROM 
-            public.product_variants v
-        JOIN 
-            public.products p ON p.product_id = v.supplier_product_id
-        GROUP BY 
-            p.product_id
-    ) pv ON pv.product_id = p.product_id
-WHERE 
-    b.brand_id = v.brand_id
+    brand_ingredients bi ON b.brand_id = bi.brand_id
 GROUP BY 
-    b.brand_id;
+    b.brand_id,
+    b.brand_name;
         `;
 
-        const stores = await pool.query(suppliersQuery);
+        const brands = await pool.query(brandsQuery);
         res.status(200).json({
             message: 'Brands fetched successfully.',
-            stores: stores.rows,
+            brands: brands.rows,
         });
     } catch (error: any) {
-        console.error('Error fetching stores:', error.message);
-        res.status(500).json({ error: 'Server error. Failed to fetch stores.' });
+        console.error('Error fetching brands:', error.message);
+        res.status(500).json({ error: 'Server error. Failed to fetch brands.' });
     }
 });
 
