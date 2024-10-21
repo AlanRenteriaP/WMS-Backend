@@ -1,5 +1,5 @@
 export * from './supplierSchema';
 export * from './brandSchema';
 export * from './unitSchema';
-export * from './productSchema';
-export * from './productVariantSchema';
+export * from './ingredientSchema';
+export * from './productsSchema';

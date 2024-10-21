@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import pool from '../../database';
 import {validateRequest} from '../../middleware/validate';
-import {storeSchema, StoreInput, storeIdSchema, StoreIdInput} from "../../schemas";
+import {supplierSchema, StoreInput, supplierIdSchema, StoreIdInput} from "../../schemas";
 
 const router = express.Router();
 
@@ -15,12 +15,12 @@ router.get('/', async (req: Request, res: Response) => {
         });
 
     } catch (error: any) {
-        console.error('Error fetching products:', error.message);
-        res.status(500).json({ error: 'Server error. Failed to fetch products.' });
+        console.error('Error fetching productsSchema:', error.message);
+        res.status(500).json({ error: 'Server error. Failed to fetch productsSchema.' });
     }
 });
 
-router.get('/getstores', async (req: Request, res: Response) => {
+router.get('/getsuppliers', async (req: Request, res: Response) => {
     try {
         const suppliersQuery = `SELECT * FROM suppliers`;
 
@@ -105,7 +105,7 @@ GROUP BY
         const suppliers = await pool.query(suppliersQuery);
         res.status(200).json({
             message: 'Stores fetched successfully.',
-            suppliers: suppliers.rows,
+            suppliersOverview: suppliers.rows,
         });
     } catch (error: any) {
         console.error('Error fetching suppliers:', error.message);
@@ -114,7 +114,7 @@ GROUP BY
 });
 
 
-router.post('/addsupplier', validateRequest({ body: storeSchema }), async (req: Request, res: Response) => {
+router.post('/addsupplier', validateRequest({ body: supplierSchema }), async (req: Request, res: Response) => {
     try {
         const { supplier_name, location } = req.body as StoreInput;
 
@@ -134,92 +134,6 @@ router.post('/addsupplier', validateRequest({ body: storeSchema }), async (req: 
     } catch (error: any) {
         console.error('Error adding store:', error.message);
         res.status(500).json({ error: 'Server error. Failed to add store.' });
-    }
-});
-
-
-
-router.get('/getstorebyid/:id', validateRequest({ params: storeIdSchema }), async (req: Request, res: Response) => {
-        const { id } = req.params as unknown as StoreIdInput; // Workaround for TypeScript
-
-        try {
-            const suppliersQuery = `SELECT * FROM suppliers WHERE supplier_id = $1`;
-            const values = [id];
-
-            const storeResult = await pool.query(suppliersQuery, values);
-
-            if (storeResult.rows.length === 0) {
-                return res.status(404).json({ error: 'Store not found.' });
-            }
-
-            res.status(200).json({
-                message: 'Store fetched successfully.',
-                store: storeResult.rows[0],
-            });
-        } catch (error: any) {
-            console.error('Error fetching store:', error.message);
-            res.status(500).json({ error: 'Server error. Failed to fetch store.' });
-        }
-    }
-);
-
-router.put('/updatestore/:id', validateRequest({ params: storeIdSchema, body: storeSchema }), async (req: Request, res: Response) => {
-    const { id } = req.params as unknown as StoreIdInput;
-    const { supplier_name, location} = req.body as StoreInput;
-
-    try {
-        // SQL query to update store details
-        const updateQuery = `
-                UPDATE suppliers 
-                SET 
-                    supplier_name = $1, 
-                    location = $2
-                WHERE supplier_id = $3
-                RETURNING *;`;
-        const values = [supplier_name, location, id];
-
-
-        const updateResult = await pool.query(updateQuery, values);
-
-        if (updateResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Store not found or no update was made.' });
-        }
-
-        res.status(200).json({
-            message: 'Store updated successfully.',
-            store: updateResult.rows[0],
-        });
-    } catch (error: any) {
-        console.error('Error updating store:', error.message);
-        res.status(500).json({ error: 'Server error. Failed to update store.' });
-    }
-});
-
-
-router.delete('/deletestore/:id', validateRequest({ params: storeIdSchema }), async (req: Request, res: Response) => {
-    const { id } = req.params as unknown as StoreIdInput;
-
-    try {
-        // SQL query to delete store details
-        const deleteQuery = `
-                DELETE FROM suppliers 
-                WHERE supplier_id = $1
-                RETURNING *;`; // This returns the deleted row
-        const values = [id];
-
-        const deleteResult = await pool.query(deleteQuery, values);
-
-        if (deleteResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Store not found or no deletion was made.' });
-        }
-
-        res.status(200).json({
-            message: 'Store deleted successfully.',
-            store: deleteResult.rows[0],
-        });
-    } catch (error: any) {
-        console.error('Error deleting store:', error.message);
-        res.status(500).json({ error: 'Server error. Failed to delete store.' });
     }
 });
 

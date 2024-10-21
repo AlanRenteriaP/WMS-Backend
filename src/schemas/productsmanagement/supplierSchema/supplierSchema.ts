@@ -1,7 +1,7 @@
-// src/schemas/storeSchema.ts
+// src/schemas/supplierSchema.ts
 import { z } from 'zod';
 
-export const storeSchema = z.object({
+export const supplierSchema = z.object({
     supplier_name: z
         .string()
         .min(1, { message: 'Store name cannot be empty.' })
@@ -13,4 +13,4 @@ export const storeSchema = z.object({
         .nullable(),
 });
 
-export type StoreInput = z.infer<typeof storeSchema>;
+export type StoreInput = z.infer<typeof supplierSchema>;
